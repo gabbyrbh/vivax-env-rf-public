@@ -13,7 +13,7 @@ This repository contains the public analysis pipeline for a study examining lagg
 **Study period**: 2016–2024 (2020–2021 excluded due to COVID-19 disruptions)
 **Software**: R v4.2.1, Python 3, DLNM v2.4.7, mgcv
 
-> **Note on reproducibility**: Community centroid coordinates (lat/long) are not published for participant confidentiality reasons. The ERA5 weather extraction script (`0-data-cleaning/2-era5-extraction.py`) is provided for reference only and cannot be run from this repository. The public analysis pipeline begins at step `1-data-processing/` using weather data already merged into the public dataset at `6-public-data/output/vivax-env-erf-public.csv`.
+> **Note on reproducibility**: Community centroid coordinates (lat/long) are not published for participant confidentiality reasons. Scripts in `0-data-cleaning/` and `1-data-processing/` are included for methodological transparency but require private data inputs and cannot be run from this repository. **Public reproduction begins at `2-analysis/`** using the pre-built dataset at `6-public-data/output/vivax-env-erf-public.csv`.
 
 ---
 
@@ -27,7 +27,7 @@ vivax-env-rf-public/
 ├── 0-data-cleaning/                  # Reference only — cannot be run publicly
 │   └── 2-era5-extraction.py          # ERA5-Land extraction via GEE (requires coordinates)
 │
-├── 1-data-processing/                # Requires original Box data — for reference
+├── 1-data-processing/                # Transparency only — requires private data, cannot be run
 │   ├── 1-aggregate-era5.R            # Kelvin/meters → °C/mm, daily → weekly
 │   └── 2-merge-weather.R             # Merge incidence + weather → analysis dataset
 │
@@ -67,13 +67,7 @@ vivax-env-rf-public/
 
 ### 1. Configure paths
 
-Open `0-config.R` and set `data_dir` to the directory where you have stored the data files:
-
-```r
-data_dir <- "/path/to/your/data/"
-```
-
-If you are using only the public dataset (recommended), no external data directory is needed — data are read from `6-public-data/output/` automatically.
+No path configuration is required. All scripts use `here::here()` to build paths relative to the repository root, and data are read automatically from `6-public-data/output/`. If you want to redirect outputs (figures, tables, results), the relevant path variables are defined in `0-config.R`.
 
 ### 2. Install R packages
 
@@ -112,24 +106,6 @@ The primary analysis dataset is at **`6-public-data/output/vivax-env-erf-public.
 | `precip_wk_total` | Weekly total precipitation (mm, ERA5-Land) |
 | `oni_index` | Oceanic Niño Index (ONI) |
 | `comm_type` | Community type (`highway` or `riverine`) |
-
-### Reading the public dataset into analysis scripts
-
-Replace the Box data-loading block at the top of each analysis script with:
-
-```r
-nonlagged_data <- read.csv(paste0(here::here(), "/6-public-data/output/vivax-env-erf-public.csv")) %>%
-  rename(time = "week") %>%
-  mutate(population = as.numeric(population),
-         n_cases    = as.numeric(n_cases),
-         comm_id    = as.factor(comm_id),
-         oni_index  = as.numeric(oni_index)) %>%
-  filter(!is.na(population)) %>%
-  mutate(year = factor(as.character(year),
-                       levels = c("2016","2017","2018","2019","2020","2021","2022","2023","2024"))) %>%
-  filter(year != "2020") %>%
-  filter(year != "2021")
-```
 
 ---
 
