@@ -41,13 +41,14 @@ Sys.setenv(OMP_NUM_THREADS = as.character(cores_per_worker))
 Sys.setenv(MKL_NUM_THREADS = as.character(cores_per_worker))
 Sys.setenv(OPENBLAS_NUM_THREADS = as.character(cores_per_worker))
 
-data_path <- "/home/groups/jadebc/vivax-env-rf/data/"
-figure_path <- "/home/groups/jadebc/vivax-env-rf/figures/"
-results_path <- "/home/groups/jadebc/vivax-env-rf/results/"
+# Paths (defined relative to project root — edit in 0-config.R if needed)
+public_data_path <- paste0(here::here(), "/6-public-data/output/")
+results_path     <- paste0(here::here(), "/results/")
+bs_path          <- paste0(here::here(), "/bs/")
+dir.create(bs_path, showWarnings = FALSE, recursive = TRUE)
 
 # Load data ---------------------------------------------------------------
-nonlagged_data <- readRDS(paste0(data_path,
-                                 "non-lagged-analysis-data_ext.RDS")) %>%
+nonlagged_data <- read.csv(paste0(public_data_path, "vivax-env-erf-public.csv")) %>%
   rename(time = "study_week") %>%
   mutate(population = as.numeric(population),
          n_cases = as.numeric(n_cases),
@@ -72,14 +73,9 @@ median_pop_comm <- nonlagged_data %>%
 
 nonlagged_data <- nonlagged_data %>% mutate(comm_id = relevel(comm_id, ref = median_pop_comm))
 
-# Read in comm_type csv
-comm_type <- read.csv(paste0(data_path, "all_district_centroids_comm_type.csv")) %>%
-  mutate(comm_type = ifelse(comm_type == "", "riverine", comm_type)) %>%
-  mutate(comm_id = sprintf("%03d", comm_id)) %>%
-  mutate(comm_id = as.factor(comm_id)) %>%
-  mutate(comm_id = relevel(comm_id, ref = median_pop_comm))
-
-nonlagged_data <- nonlagged_data %>% left_join(comm_type, by = "comm_id")
+# comm_type is included in the public dataset
+nonlagged_data <- nonlagged_data %>%
+  mutate(comm_type = ifelse(is.na(comm_type) | comm_type == "", "riverine", comm_type))
 
 # Function to lag data for a specific variable and lag
 lag_data <- function(data, predictor, covariate, lag_value) {
@@ -220,7 +216,7 @@ run_analysis <- function(data, predictor, lag_value, covariate, comm_type_value)
   
   # Save bootstrap result
   bootstrap_filename <- glue("bs-{predictor_clean}-{comm_type_clean}.RDS")
-  saveRDS(boot_results, file = paste0(results_path, bootstrap_filename))
+  saveRDS(boot_results, file = paste0(bs_path, bootstrap_filename))
   cat(glue("Bootstrap result saved as: {bootstrap_filename}\n"))
   
   cat(glue("Analysis completed for predictor: {predictor}, comm_type: {comm_type_value}\n\n"))

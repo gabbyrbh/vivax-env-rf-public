@@ -28,8 +28,7 @@ library(cowplot)
 select <- dplyr::select
 summarize <- dplyr::summarize
 
-nonlagged_data <- readRDS(paste0(box_path_flame_erf, 
-                                 "non-lagged-analysis-data_ext.RDS")) %>% 
+nonlagged_data <- read.csv(paste0(public_data_path, "vivax-env-erf-public.csv")) %>%
   rename(time = "week") %>%
   mutate(population = as.numeric(population),
          n_cases = as.numeric(n_cases),
@@ -53,14 +52,9 @@ median_pop_comm <- nonlagged_data %>%
 
 nonlagged_data <- nonlagged_data %>% mutate(comm_id = relevel(comm_id, ref = median_pop_comm))
 
-# Read in comm_type csv
-comm_type <- read.csv(paste0(box_path_flame_erf, "all_district_centroids_comm_type.csv")) %>%
-  mutate(comm_id = sprintf("%03d", comm_id)) %>%
-  mutate(comm_type = ifelse(comm_type == "", "riverine", comm_type)) %>%
-  mutate(comm_id = as.factor(comm_id)) %>%
-  mutate(comm_id = relevel(comm_id, ref = median_pop_comm))
-
-nonlagged_data <- nonlagged_data %>% left_join(comm_type, by = "comm_id")
+# comm_type is included in the public dataset
+nonlagged_data <- nonlagged_data %>%
+  mutate(comm_type = ifelse(is.na(comm_type) | comm_type == "", "riverine", comm_type))
 
 # Load Community Type Data ----------------------------------------------------
 base_precip_total_comm <- rbind(
@@ -71,8 +65,8 @@ base_precip_total_comm <- rbind(
 )
 
 bs_precip_total_comm <- rbind(
-  readRDS(paste0(box_path_flame_erf, "bs/bs-precip-wk-total-highway.RDS")) %>% mutate(comm_type = "highway"),
-  readRDS(paste0(box_path_flame_erf, "bs/bs-precip-wk-total-riverine.RDS")) %>% mutate(comm_type = "riverine")
+  readRDS(paste0(bs_path, "bs-precip-wk-total-highway.RDS")) %>% mutate(comm_type = "highway"),
+  readRDS(paste0(bs_path, "bs-precip-wk-total-riverine.RDS")) %>% mutate(comm_type = "riverine")
 )
 
 base_temp_max_comm <- rbind(
@@ -82,8 +76,8 @@ base_temp_max_comm <- rbind(
     mutate(comm_type = "riverine"))
 
 bs_temp_max_comm <- rbind(
-  readRDS(paste0(box_path_flame_erf, "bs/bs-temp-wk-max-highway.RDS")) %>% mutate(comm_type = "highway"),
-  readRDS(paste0(box_path_flame_erf, "bs/bs-temp-wk-max-riverine.RDS")) %>% mutate(comm_type = "riverine")
+  readRDS(paste0(bs_path, "bs-temp-wk-max-highway.RDS")) %>% mutate(comm_type = "highway"),
+  readRDS(paste0(bs_path, "bs-temp-wk-max-riverine.RDS")) %>% mutate(comm_type = "riverine")
 )
 
 base_temp_min_comm <- rbind(
@@ -94,8 +88,8 @@ base_temp_min_comm <- rbind(
 )
 
 bs_temp_min_comm <- rbind(
-  readRDS(paste0(box_path_flame_erf, "bs/bs-temp-wk-min-highway.RDS")) %>% mutate(comm_type = "highway"),
-  readRDS(paste0(box_path_flame_erf, "bs/bs-temp-wk-min-riverine.RDS")) %>% mutate(comm_type = "riverine")
+  readRDS(paste0(bs_path, "bs-temp-wk-min-highway.RDS")) %>% mutate(comm_type = "highway"),
+  readRDS(paste0(bs_path, "bs-temp-wk-min-riverine.RDS")) %>% mutate(comm_type = "riverine")
 )
 
 # Load ENSO Data --------------------------------------------------------------
@@ -118,24 +112,24 @@ precip_total_base_enso <- rbind(
 ) %>% mutate(incidence_10k = incidence*10000)
 
 temp_min_bs_enso <- rbind(
-  readRDS(file = paste0(box_path_flame_erf, "bs/bs-temp-min-enso-normal.RDS")) %>% 
+  readRDS(file = paste0(bs_path, "bs-temp-min-enso-normal.RDS")) %>% 
     mutate(enso_period = "Neutral"),
-  readRDS(file = paste0(box_path_flame_erf, "bs/bs-temp-min-enso-el-nino.RDS")) %>% 
+  readRDS(file = paste0(bs_path, "bs-temp-min-enso-el-nino.RDS")) %>% 
     mutate(enso_period = "El Niño"),
-  readRDS(file = paste0(box_path_flame_erf, "bs/bs-temp-min-enso-la-nina.RDS")) %>% 
+  readRDS(file = paste0(bs_path, "bs-temp-min-enso-la-nina.RDS")) %>% 
     mutate(enso_period = "La Niña")
 )
 
 temp_max_bs_enso <- rbind(
-  readRDS(file = paste0(box_path_flame_erf, "bs/bs-temp-max-enso-normal.RDS")) %>% mutate(enso_period = "Neutral"),
-  readRDS(file = paste0(box_path_flame_erf, "bs/bs-temp-max-enso-el-nino.RDS")) %>% mutate(enso_period = "El Niño"),
-  readRDS(file = paste0(box_path_flame_erf, "bs/bs-temp-max-enso-la-nina.RDS")) %>% mutate(enso_period = "La Niña")
+  readRDS(file = paste0(bs_path, "bs-temp-max-enso-normal.RDS")) %>% mutate(enso_period = "Neutral"),
+  readRDS(file = paste0(bs_path, "bs-temp-max-enso-el-nino.RDS")) %>% mutate(enso_period = "El Niño"),
+  readRDS(file = paste0(bs_path, "bs-temp-max-enso-la-nina.RDS")) %>% mutate(enso_period = "La Niña")
 )
 
 precip_total_bs_enso <- rbind(
-  readRDS(file = paste0(box_path_flame_erf, "bs/bs-precip-total-enso-normal.RDS")) %>% mutate(enso_period = "Neutral"),
-  readRDS(file = paste0(box_path_flame_erf, "bs/bs-precip-total-enso-el-nino.RDS")) %>% mutate(enso_period = "El Niño"),
-  readRDS(file = paste0(box_path_flame_erf, "bs/bs-precip-total-enso-la-nina.RDS")) %>% mutate(enso_period = "La Niña")
+  readRDS(file = paste0(bs_path, "bs-precip-total-enso-normal.RDS")) %>% mutate(enso_period = "Neutral"),
+  readRDS(file = paste0(bs_path, "bs-precip-total-enso-el-nino.RDS")) %>% mutate(enso_period = "El Niño"),
+  readRDS(file = paste0(bs_path, "bs-precip-total-enso-la-nina.RDS")) %>% mutate(enso_period = "La Niña")
 )
 
 # Function for Community Type plots

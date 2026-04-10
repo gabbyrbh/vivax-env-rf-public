@@ -28,8 +28,7 @@ select <- dplyr::select
 summarize <- dplyr::summarize
 
 # Load data ---------------------------------------------------------------
-nonlagged_data <- readRDS(paste0(box_path_flame_erf,
-                                 "non-lagged-analysis-data_ext.RDS")) %>%
+nonlagged_data <- read.csv(paste0(public_data_path, "vivax-env-erf-public.csv")) %>%
   rename(time = "week") %>%
   mutate(population = as.numeric(population),
          n_cases = as.numeric(n_cases),

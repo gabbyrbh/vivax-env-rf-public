@@ -23,8 +23,7 @@ select <- dplyr::select
 summarize <- dplyr::summarize
 
 # Load data ---------------------------------------------------------------
-nonlagged_data <- readRDS(paste0(box_path_flame_erf,
-                                 "non-lagged-analysis-data_ext.RDS")) %>%
+nonlagged_data <- read.csv(paste0(public_data_path, "vivax-env-erf-public.csv")) %>%
   rename(time = week) %>%
   mutate(
     population = as.numeric(population),
@@ -50,21 +49,16 @@ nonlagged_data <- nonlagged_data %>%
   mutate(comm_id = relevel(comm_id, ref = median_pop_comm))
 
 # Read in comm_type csv
-comm_type <- read_csv(paste0(box_path_flame_erf, "all_district_centroids_comm_type.csv")) %>%
-  mutate(
-    comm_type = if_else(comm_type == "", "riverine", comm_type),
-    comm_id = as.factor(comm_id),
-    comm_id = relevel(comm_id, ref = median_pop_comm),
-    highway = if_else(comm_type == "highway", 1, 0),
-    riverine = if_else(comm_type == "riverine", 1, 0)
-  ) %>%
-  filter(!is.na(comm_type))
-
-nonlagged_data <- nonlagged_data %>% 
-  left_join(comm_type, by = "comm_id") %>%
+# comm_type is included in the public dataset
+nonlagged_data <- nonlagged_data %>%
+  mutate(comm_type = ifelse(is.na(comm_type) | comm_type == "", "riverine", comm_type)) %>%
   filter(!is.na(comm_type)) %>%
   mutate(
     comm_type = factor(comm_type, levels = c("highway", "riverine"), labels = c("Highway", "Riverine")),
+    highway  = if_else(comm_type == "Highway", 1, 0),
+    riverine = if_else(comm_type == "Riverine", 1, 0)
+  ) %>%
+  mutate(
     enso_period = case_when(
       oni_index >= 0.5 ~ "El Niño periods",
       oni_index <= -0.5 ~ "La Niña periods",

@@ -20,8 +20,7 @@ select <- dplyr::select
 summarize <- dplyr::summarize
 
 # Load data ---------------------------------------------------------------
-nonlagged_data <- readRDS(paste0(box_path_flame_erf,
-                                 "non-lagged-analysis-data_ext.RDS")) %>%
+nonlagged_data <- read.csv(paste0(public_data_path, "vivax-env-erf-public.csv")) %>%
   rename(time = "week") %>%
   mutate(population = as.numeric(population),
          n_cases = as.numeric(n_cases),
@@ -44,13 +43,9 @@ median_pop_comm <- nonlagged_data %>%
 
 nonlagged_data <- nonlagged_data %>% mutate(comm_id = relevel(comm_id, ref = median_pop_comm))
 
-# Read in comm_type csv
-comm_type <- read.csv(paste0(box_path_flame_erf, "all_district_centroids_comm_type.csv")) %>%
-  mutate(comm_type = ifelse(comm_type == "", "riverine", comm_type)) %>%
-  mutate(comm_id = as.factor(comm_id)) %>%
-  mutate(comm_id = relevel(comm_id, ref = median_pop_comm))
-
-nonlagged_data <- nonlagged_data %>% left_join(comm_type, by = "comm_id")
+# comm_type is included in the public dataset
+nonlagged_data <- nonlagged_data %>%
+  mutate(comm_type = ifelse(is.na(comm_type) | comm_type == "", "riverine", comm_type))
 
 # Calculate incidence ----------------------------------------------------------
 incidence = sum(nonlagged_data$n_cases)/sum(nonlagged_data$population)*10000
@@ -79,11 +74,11 @@ gam_precip_total <- readRDS(paste0(here::here(), "/results/base results/base-pre
 
 # Load in bootstrap results from Sherlock --------------------------------------
 # Load bootstrap results from Sherlock
-bs_temp_wk_min <- readRDS(paste0(box_path_flame_erf, "bs/bs-temp-min.RDS"))
+bs_temp_wk_min <- readRDS(paste0(bs_path, "bs-temp-min.RDS"))
 
-bs_temp_wk_max <- readRDS(paste0(box_path_flame_erf, "bs/bs-temp-max.RDS"))
+bs_temp_wk_max <- readRDS(paste0(bs_path, "bs-temp-max.RDS"))
 
-bs_precip_wk_total <- readRDS(paste0(box_path_flame_erf, "bs/bs-precip-total.RDS"))
+bs_precip_wk_total <- readRDS(paste0(bs_path, "bs-precip-total.RDS"))
 
 # Define plotting function ------------------------------------------------
 plot_gam <- function(base_result, boot_results, predictor, predictor_name, lag_value, color_code, plot_tags, axis_breaks, axis_limits) {

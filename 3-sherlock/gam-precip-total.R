@@ -41,13 +41,14 @@ Sys.setenv(OMP_NUM_THREADS = as.character(cores_per_worker))
 Sys.setenv(MKL_NUM_THREADS = as.character(cores_per_worker))
 Sys.setenv(OPENBLAS_NUM_THREADS = as.character(cores_per_worker))
 
-data_path <- "/home/groups/jadebc/vivax-env-rf/data/"
-figure_path <- "/home/groups/jadebc/vivax-env-rf/figures/"
-results_path <- "/home/groups/jadebc/vivax-env-rf/results/"
+# Paths (defined relative to project root — edit in 0-config.R if needed)
+public_data_path <- paste0(here::here(), "/6-public-data/output/")
+results_path     <- paste0(here::here(), "/results/")
+bs_path          <- paste0(here::here(), "/bs/")
+dir.create(bs_path, showWarnings = FALSE, recursive = TRUE)
 
 # Load data ---------------------------------------------------------------
-nonlagged_data <- readRDS(paste0(data_path,
-                                 "non-lagged-analysis-data_ext.RDS")) %>%
+nonlagged_data <- read.csv(paste0(public_data_path, "vivax-env-erf-public.csv")) %>%
   rename(time = "study_week") %>%
   mutate(population = as.numeric(population),
          n_cases = as.numeric(n_cases),
@@ -197,5 +198,5 @@ saveRDS(base_result, file = paste0(results_path, "base-precip-total.RDS"))
 # Perform bootstrap
 cat("Starting bootstrap...\n")
 boot_results <- bootstrap_incidence_parallel(analysis_data, pred_seq, predictor, lag_value, covariate, cores_per_worker, n_boot = 1000)
-saveRDS(boot_results, file = paste0(results_path, "bs-precip-total.RDS"))
+saveRDS(boot_results, file = paste0(bs_path, "bs-precip-total.RDS"))
 cat("Bootstrap completed.\n")
