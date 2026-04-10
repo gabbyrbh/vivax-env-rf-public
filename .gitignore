@@ -1,0 +1,29 @@
+# R
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Rdata
+*.Rout
+
+# R outputs (large model objects)
+*.RDS
+*.rds
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Map tile cache
+rosm.cache/
+
+# R default plot output
+Rplots.pdf
+
+# Rendered HTML
+figures/map_study_area_files/
+*.html
+
+# Credentials (never commit)
+credentials/
+*.json
