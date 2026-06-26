@@ -19,16 +19,17 @@ library(RColorBrewer)
 library(scales)
 library(ggplot2)
 library(ggspatial)
+library(cowplot)
 
 # Load spatial data -------------------------------------------------------
 # read in Peru shapefile
 districts = c("Punchana", "Alto Nanay", "San Juan Bautista", "Iquitos", "Belen")
-peru_M_region_shp <- st_read(paste0(box_path_flame_erf, "shapefiles/per_admbnda_adm3_ign_20200714.shp")) %>% 
+peru_M_region_shp <- st_read(paste0(box_path_flame_erf, "shapefiles/per_admbnda_adm3_ign_20200714.shp")) %>%
   filter(ADM2_ES == "Maynas") %>% filter(ADM3_ES %in% districts)
 
 # Read in forest raster
 lu_raster <- terra::rast(paste0(box_path_ucsf_shared, "rasters/lu_raster_epsg.tif"))
-lu_raster[!(lu_raster %in% c(1, 26))] <- NA # keep only forest (1) and water (26)
+lu_raster[lu_raster != 1] <- NA # keep only forest (1)
 
 # Aggregate raster to 100m x 100m resolution
 lu_raster_agg <- terra::aggregate(lu_raster, fact=c(100/30, 100/30), fun="modal")
@@ -45,8 +46,7 @@ names(lu_df)[3] <- "value"
 
 # Remove NA values and create separate datasets for forest and water
 lu_df <- lu_df[!is.na(lu_df$value), ]
-forest_df <- lu_df %>% filter(value == 1)
-water_df <- lu_df %>% filter(value == 26)
+forest_df <- lu_df
 
 # read in merged data for incidence calc
 merged_df <- readRDS(paste0(box_path_flame_erf, 
@@ -92,26 +92,28 @@ area_km2 <- st_area(hull_polygon) / 1e6
 
 inc_palette_reversed <- plasma(9, direction = -1)
 
+# Iquitos city center for labeling
+iquitos_pt <- data.frame(lon = -73.2516, lat = -3.7437, label = "Iquitos")
 
-ggplot() +
-  geom_sf(data = peru_M_region_shp, fill = NA, color = "black") +
-  ggspatial::annotation_map_tile(type = "osm", zoom = 10, alpha = 0.8)
+# Create ggplot map -------------------------------------------------------
+map <- ggplot() +
 
-# Create ggplot map
-map_study_area <- ggplot() +
-  
   # Add background map tiles
-  ggspatial::annotation_map_tile(type = "osm", zoom = 10, alpha = 0.8) +
-  
-  # Start with shapefile to establish bounds
-  geom_sf(data = peru_M_region_shp, fill = NA, color = "black") +
-  
+  ggspatial::annotation_map_tile(type = "osm", zoom = 10) +
+
   # Add forest areas
-  geom_raster(data = forest_df, aes(x = x, y = y), fill = "chartreuse4", alpha = 0.9) +
-  
-  # Add water areas  
-  geom_raster(data = water_df, aes(x = x, y = y), fill = "dodgerblue4", alpha = 0.9) +
-  
+  geom_raster(data = forest_df, aes(x = x, y = y), fill = "chartreuse4", alpha = 0.7) +
+
+  # Dummy segments for line legend (col 3) — not visible on map
+  geom_segment(aes(x = NA_real_, y = NA_real_, xend = NA_real_, yend = NA_real_,
+                   color = "Iquitos-Nauta Hwy"), na.rm = TRUE) +
+  geom_segment(aes(x = NA_real_, y = NA_real_, xend = NA_real_, yend = NA_real_,
+                   color = "Rivers"), na.rm = TRUE) +
+  scale_color_manual(
+    values = c("Iquitos-Nauta Hwy" = "orange", "Rivers" = "steelblue1"),
+    name   = " "
+  ) +
+
   # Add community points with incidence coloring and different shapes
   geom_point(data = inc_df,
              aes(x = long, y = lat, fill = mean_weekly_inc, shape = comm_type),
@@ -119,34 +121,49 @@ map_study_area <- ggplot() +
              size = 3.5,
              stroke = 0.5,
              position = position_jitter(width = 0.01, height = 0.01, seed = 123)) +
-  
-  # Define custom shapes (squares for highway, circles for riverine)
-  scale_shape_manual(values = c("Highway" = 22,    # filled square
-                                "Riverine" = 21),   # filled circle
+
+  # Col 2: community type shapes
+  scale_shape_manual(values = c("Highway" = 22, "Riverine" = 21),
                      name = "Community Type") +
-  
-  # Color scale for incidence
+
+  # Col 1: incidence colorbar
   scale_fill_gradientn(colors = inc_palette_reversed,
                        name = "Malaria Incidence\nper 10,000 person-weeks",
                        na.value = "transparent") +
-  
-  # Set plot limits to raster extents
-  coord_sf(xlim = c(-74.5, -73), ylim = c(-4.2, -3.0), expand = FALSE) +
-  
+
+  guides(
+    fill  = guide_colorbar(order = 1, title.position = "top", title.hjust = 0,
+                           barwidth = unit(4.5, "cm"), barheight = unit(0.5, "cm")),
+    shape = guide_legend(order = 2, nrow = 2, title.position = "top", title.hjust = 0,
+                         override.aes = list(fill = "white")),
+    color = guide_legend(nrow = 2, order = 3, title.position = "top",
+                         override.aes = list(linewidth = 1.2))
+  ) +
+
+  annotation_scale(location = "bl", width_hint = 0.25,
+                   text_family = "serif", text_cex = 0.8) +
+
+  coord_sf(xlim = c(-74.4, -73), ylim = c(-4.2, -3.0), crs = 4326, expand = FALSE) +
+
   theme_void() +
   theme(
-    legend.position = "bottom",
-    legend.key.width = unit(1, "cm"),
-    legend.key.height = unit(0.5, "cm"),
-    legend.margin = margin(10, 10, 10, 10),
-    legend.text = element_text(family = "serif", size = 10),
-    legend.title = element_text(family = "serif", size = 10),
-    panel.background = element_rect(fill = "white", color = NA),
-    plot.background = element_rect(fill = "white", color = NA),
-    plot.margin = margin(10, 10, 10, 10)
+    legend.position      = "bottom",
+    legend.box           = "horizontal",
+    #legend.box.just      = "left",
+    # legend.box.spacing   = unit(4, "pt"),
+    legend.spacing.x     = unit(40, "pt"),
+    # legend.key.height    = unit(0.4, "cm"),
+    # legend.key.width     = unit(0.4, "cm"),
+    legend.margin        = margin(2, 2, 0, 2),
+    legend.text          = element_text(family = "serif", size = 10),
+    legend.title         = element_text(family = "serif", size = 10,
+                                        face = "bold", hjust = 0.5),
+    panel.background     = element_rect(fill = "white", color = NA),
+    plot.background      = element_rect(fill = "white", color = NA),
+    plot.margin          = margin(5, 5, 1, 5)
   )
 
 # Save the map
 ggsave(paste0(figure_path, "figure-2.pdf"),
-       plot = map_study_area,
-       width = 8, height = 6, units = "in", dpi = 300)
+       plot  = map,
+       width = 6, height = 6.5, units = "in", dpi = 300)
