@@ -23,7 +23,8 @@ select <- dplyr::select
 summarize <- dplyr::summarize
 
 # Load data ---------------------------------------------------------------
-nonlagged_data <- read.csv(paste0(public_data_path, "vivax-env-erf-public.csv")) %>%
+nonlagged_data <- readRDS(paste0(box_path_flame_erf,
+                                 "non-lagged-analysis-data_ext.RDS")) %>%
   rename(time = week) %>%
   mutate(
     population = as.numeric(population),
@@ -49,16 +50,20 @@ nonlagged_data <- nonlagged_data %>%
   mutate(comm_id = relevel(comm_id, ref = median_pop_comm))
 
 # Read in comm_type csv
-# comm_type is included in the public dataset
-nonlagged_data <- nonlagged_data %>%
-  mutate(comm_type = ifelse(is.na(comm_type) | comm_type == "", "riverine", comm_type)) %>%
-  filter(!is.na(comm_type)) %>%
+comm_type <- read.csv(paste0(box_path_flame_erf, "all_district_centroids_comm_type.csv")) %>%
+  mutate(
+    comm_id = sprintf("%03d", comm_id),
+    comm_type = ifelse(is.na(comm_type), "riverine", comm_type),
+    highway = ifelse(comm_type == "highway", 1, 0),
+    riverine = ifelse(comm_type == "riverine", 1, 0)
+  ) %>%
+  mutate(comm_id = as.factor(comm_id),
+         comm_id = relevel(comm_id, ref = median_pop_comm))
+
+nonlagged_data <- nonlagged_data %>% 
+  left_join(comm_type, by = "comm_id") %>%
   mutate(
     comm_type = factor(comm_type, levels = c("highway", "riverine"), labels = c("Highway", "Riverine")),
-    highway  = if_else(comm_type == "Highway", 1, 0),
-    riverine = if_else(comm_type == "Riverine", 1, 0)
-  ) %>%
-  mutate(
     enso_period = case_when(
       oni_index >= 0.5 ~ "El Niño periods",
       oni_index <= -0.5 ~ "La Niña periods",
@@ -66,6 +71,9 @@ nonlagged_data <- nonlagged_data %>%
     ),
     enso_period = factor(enso_period, levels = c("Neutral ENSO periods", "El Niño periods", "La Niña periods"))
   )
+
+# Get incidence over study period
+sum(nonlagged_data$n_cases) / sum(nonlagged_data$population) * 10000
 
 # Create ENSO shading data
 enso_shading <- nonlagged_data %>%
@@ -97,22 +105,35 @@ enso_shading <- nonlagged_data %>%
     )
   )
 
-df_long <- nonlagged_data %>% 
-  select(monday_date, comm_id, n_cases, temp_wk_min, temp_wk_max, precip_wk_total, enso_period) %>% 
+# Summary stats per measure per date (across communities)
+df_summary <- nonlagged_data %>%
+  select(monday_date, temp_wk_min, temp_wk_max, precip_wk_total) %>%
   group_by(monday_date) %>%
-  summarize(across(c(temp_wk_min, temp_wk_max, precip_wk_total), mean), .groups = "drop") %>% 
-  pivot_longer(
-    cols = c(temp_wk_min, temp_wk_max, precip_wk_total), 
-    names_to = "measure", 
-    values_to = "value"
-  ) %>%
-  mutate(plot_type = if_else(measure == "precip_wk_total", "precip", "temp")) %>%
-  mutate(plot_type = factor(plot_type, levels = c("temp", "precip")))
+  summarize(
+    temp_wk_min_mid     = mean(temp_wk_min),
+    temp_wk_min_lo      = min(temp_wk_min),
+    temp_wk_min_hi      = max(temp_wk_min),
+    temp_wk_max_mid     = mean(temp_wk_max),
+    temp_wk_max_lo      = min(temp_wk_max),
+    temp_wk_max_hi      = max(temp_wk_max),
+    precip_wk_total_mid = mean(precip_wk_total),
+    precip_wk_total_lo  = min(precip_wk_total),
+    precip_wk_total_hi  = max(precip_wk_total),
+    .groups = "drop"
+  )
+
+# Long format for lines (mean)
+df_lines <- df_summary %>%
+  select(monday_date, ends_with("_mid")) %>%
+  pivot_longer(-monday_date, names_to = "measure", values_to = "mid",
+               names_pattern = "^(.+)_mid$") %>%
+  mutate(plot_type = factor(if_else(measure == "precip_wk_total", "precip", "temp"),
+                            levels = c("temp", "precip")))
 
 # Create plot labels
 plot_labs <- c(
-  "Minimum and maximum daily temperature (C)",
-  "Total weekly precipitation (mm)"
+  "Minimum and maximum daily temperature (C), community average",
+  "Total weekly precipitation (mm), community average"
 )
 
 plot_vars <- c("temp", "precip")
@@ -125,27 +146,35 @@ label_function <- function(var_list) {
 
 labs <- label_function(plot_labs)
 
-plot_data <- df_long
-
-rf_plot_weekly <- ggplot(plot_data, aes(x = monday_date, y = value, group = measure, color = measure)) +
-  # Add ENSO shading first 
+rf_plot_weekly <- ggplot() +
+  # ENSO shading
   geom_rect(
     data = enso_shading,
     aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = enso_type),
-    alpha = 0.2,
-    inherit.aes = FALSE
+    alpha = 0.15
   ) +
-  geom_line(na.rm = FALSE) +
+  # Mean lines
+  geom_line(
+    data = df_lines,
+    aes(x = monday_date, y = mid, group = measure, color = measure),
+    na.rm = FALSE
+  ) +
   scale_x_date(
-    date_breaks = "month", 
-    date_labels = "%b %Y", 
-    limits = c(as.Date("2017-01-04"), as.Date("2024-12-25")), 
+    date_breaks = "month",
+    date_labels = "%b %Y",
+    limits = c(as.Date("2017-01-04"), as.Date("2024-12-25")),
     expand = c(0, 5)
-  ) + 
+  ) +
   facet_wrap(~ plot_type, scales = "free_y", ncol = 1, labeller = labeller(plot_type = labs)) +
-  scale_color_manual(values = c("temp_wk_min" = "#fca903", "temp_wk_max" = "#bf3b32", "precip_wk_total" = "#58a5e0")) +
+  scale_color_manual(
+    values = c("temp_wk_min" = "#fca903", "temp_wk_max" = "#bf3b32", "precip_wk_total" = "#58a5e0"),
+    guide = "none"
+  ) +
   scale_fill_manual(
-    values = c("El Niño" = "orange", "La Niña" = "cornflowerblue"),
+    values = c(
+      "temp_wk_min" = "#fca903", "temp_wk_max" = "#bf3b32", "precip_wk_total" = "#58a5e0",
+      "El Niño" = "orange", "La Niña" = "cornflowerblue"
+    ),
     guide = "none"
   ) +
   theme_light() + 
@@ -176,7 +205,7 @@ n_plot_weekly <- ggplot(n_plot_dat) +
   geom_rect(
     data = enso_shading,
     aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = enso_type),
-    alpha = 0.2,
+    alpha = 0.15,
     inherit.aes = FALSE) +
   geom_col(aes(x = monday_date, y = n_cases), fill = "black", na.rm = TRUE, alpha = 0.8, width = 6) + 
   scale_x_date(
