@@ -8,7 +8,7 @@ Benjamin-Chung Lab | First author: Gabriella Barratt Heitmann | PI: Jade Benjami
 
 ## Overview
 
-This repository contains the public analysis pipeline for a study examining lagged associations between weekly weather exposures (minimum temperature, maximum temperature, total precipitation) and *P. vivax* malaria incidence across 136 communities in Loreto, Peru. The primary method is distributed lag nonlinear modeling (DLNM) with Poisson/log link, 2–16 week lookback, followed by generalized additive models (GAMs) at the primary lag with bootstrap confidence intervals.
+This repository contains the public analysis pipeline for a study examining lagged associations between weekly weather exposures (minimum temperature, maximum temperature, total precipitation) and *P. vivax* malaria incidence across 136 communities in Loreto, Peru. The primary method is distributed lag nonlinear modeling (DLNM) with Poisson/log link, 2–16 week lookback, followed by generalized additive models (GAMs) at the primary lag with bootstrap confidence intervals. Claude Code was used to convert all filepaths to reference public datasets, clean up scripts, and improve documentation. Claude Code did not draft initial scripts or access private datasets.
 
 **Study period**: 2016–2024 (2020–2021 excluded due to COVID-19 disruptions)
 **Software**: R v4.2.1, Python 3, DLNM v2.4.7, mgcv
